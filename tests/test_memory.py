@@ -151,3 +151,34 @@ def test_system_prompt_step_to_messages():
             assert isinstance(content, dict)
             assert "type" in content
             assert "text" in content
+
+
+def test_action_step_reasoning_filtering():
+    # Test with include_reasoning=True (default)
+    model_output_with_reasoning = "<think>Let me reason about this...\nThis is my thought process</think>\nActual action here"
+    action_step = ActionStep(
+        model_output=model_output_with_reasoning,
+        include_reasoning=True
+    )
+    messages = action_step.to_messages()
+    assert len(messages) == 1
+    assert messages[0]["content"][0]["text"] == model_output_with_reasoning.strip()
+
+    # Test with include_reasoning=False
+    action_step = ActionStep(
+        model_output=model_output_with_reasoning,
+        include_reasoning=False
+    )
+    messages = action_step.to_messages()
+    assert len(messages) == 1
+    assert messages[0]["content"][0]["text"] == "Actual action here"
+
+    # Test with no think tags
+    model_output_no_reasoning = "Just a regular output"
+    action_step = ActionStep(
+        model_output=model_output_no_reasoning,
+        include_reasoning=False
+    )
+    messages = action_step.to_messages()
+    assert len(messages) == 1
+    assert messages[0]["content"][0]["text"] == model_output_no_reasoning

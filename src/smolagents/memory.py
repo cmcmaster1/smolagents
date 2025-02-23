@@ -60,6 +60,7 @@ class ActionStep(MemoryStep):
     observations: str | None = None
     observations_images: List[str] | None = None
     action_output: Any = None
+    include_reasoning: bool = True
 
     def dict(self):
         # We overwrite the method to parse the tool_calls and action_output manually
@@ -75,6 +76,7 @@ class ActionStep(MemoryStep):
             "model_output": self.model_output,
             "observations": self.observations,
             "action_output": make_json_serializable(self.action_output),
+            "include_reasoning": self.include_reasoning,
         }
 
     def to_messages(self, summary_mode: bool = False, show_model_input_messages: bool = False) -> List[Message]:
@@ -82,8 +84,13 @@ class ActionStep(MemoryStep):
         if self.model_input_messages is not None and show_model_input_messages:
             messages.append(Message(role=MessageRole.SYSTEM, content=self.model_input_messages))
         if self.model_output is not None and not summary_mode:
+            # If we don't want to include reasoning, try to extract just the action part
+            output_text = self.model_output.strip()
+            if not self.include_reasoning and "<think>" in output_text and "</think>" in output_text:
+                # Extract only the part after </think>
+                output_text = output_text.split("</think>")[-1].strip()
             messages.append(
-                Message(role=MessageRole.ASSISTANT, content=[{"type": "text", "text": self.model_output.strip()}])
+                Message(role=MessageRole.ASSISTANT, content=[{"type": "text", "text": output_text}])
             )
 
         if self.tool_calls is not None:

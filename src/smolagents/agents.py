@@ -186,7 +186,8 @@ class MultiStepAgent:
         description (`str`, *optional*): Necessary for a managed agent only - the description of this agent.
         provide_run_summary (`bool`, *optional*): Whether to provide a run summary when called as a managed agent.
         final_answer_checks (`list`, *optional*): List of Callables to run before returning a final answer for checking validity.
-        include_reasoning (`bool`, default `True`): Whether to include reasoning/thinking steps in message history.
+        remove_thinking (`bool` or `str`, default `False`): Whether to remove thinking/reasoning steps from message history.
+            If True, uses default pattern (<think>...</think>). If string, uses it as regex pattern to identify thinking parts.
     """
 
     def __init__(
@@ -206,7 +207,7 @@ class MultiStepAgent:
         description: Optional[str] = None,
         provide_run_summary: bool = False,
         final_answer_checks: Optional[List[Callable]] = None,
-        include_reasoning: bool = True,
+        remove_thinking: Union[bool, str] = False,
     ):
         self.agent_name = self.__class__.__name__
         self.model = model
@@ -221,7 +222,7 @@ class MultiStepAgent:
         self.description = description
         self.provide_run_summary = provide_run_summary
         self.final_answer_checks = final_answer_checks
-        self.include_reasoning = include_reasoning
+        self.remove_thinking = remove_thinking
 
         self._setup_managed_agents(managed_agents)
         self._setup_tools(tools, add_base_tools)
@@ -350,7 +351,7 @@ You have been provided with these additional arguments, that you can access usin
             step_number=self.step_number, 
             start_time=step_start_time, 
             observations_images=images,
-            include_reasoning=self.include_reasoning
+            remove_thinking=self.remove_thinking
         )
 
     def _execute_step(self, task: str, memory_step: ActionStep) -> Union[None, Any]:

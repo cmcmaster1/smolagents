@@ -12,6 +12,7 @@ from smolagents.memory import (
     SystemPromptStep,
     TaskStep,
 )
+from smolagents.utils import AgentError
 
 
 class TestAgentMemory:
@@ -153,32 +154,51 @@ def test_system_prompt_step_to_messages():
             assert "text" in content
 
 
-def test_action_step_reasoning_filtering():
-    # Test with include_reasoning=True (default)
-    model_output_with_reasoning = "<think>Let me reason about this...\nThis is my thought process</think>\nActual action here"
+def test_action_step_thinking_removal():
+    # Test with remove_thinking=False (default)
+    model_output_with_thinking = "<think>Let me reason about this...\nThis is my thought process</think>\nActual action here"
     action_step = ActionStep(
-        model_output=model_output_with_reasoning,
-        include_reasoning=True
+        model_output=model_output_with_thinking,
+        remove_thinking=False
     )
     messages = action_step.to_messages()
     assert len(messages) == 1
-    assert messages[0]["content"][0]["text"] == model_output_with_reasoning.strip()
+    assert messages[0]["content"][0]["text"] == model_output_with_thinking.strip()
 
-    # Test with include_reasoning=False
+    # Test with remove_thinking=True (using default <think> pattern)
     action_step = ActionStep(
-        model_output=model_output_with_reasoning,
-        include_reasoning=False
+        model_output=model_output_with_thinking,
+        remove_thinking=True
     )
     messages = action_step.to_messages()
     assert len(messages) == 1
     assert messages[0]["content"][0]["text"] == "Actual action here"
 
-    # Test with no think tags
-    model_output_no_reasoning = "Just a regular output"
+    # Test with custom regex pattern
+    model_output_custom = "[REASONING] Here's my thought process [/REASONING] Final answer: 42"
     action_step = ActionStep(
-        model_output=model_output_no_reasoning,
-        include_reasoning=False
+        model_output=model_output_custom,
+        remove_thinking=r"\[REASONING\].*?\[/REASONING\]"
     )
     messages = action_step.to_messages()
     assert len(messages) == 1
-    assert messages[0]["content"][0]["text"] == model_output_no_reasoning
+    assert messages[0]["content"][0]["text"] == "Final answer: 42"
+
+    # Test with no thinking markers
+    model_output_no_thinking = "Just a regular output"
+    action_step = ActionStep(
+        model_output=model_output_no_thinking,
+        remove_thinking=True
+    )
+    messages = action_step.to_messages()
+    assert len(messages) == 1
+    assert messages[0]["content"][0]["text"] == model_output_no_thinking
+
+    # Test with invalid regex pattern
+    action_step = ActionStep(
+        model_output=model_output_custom,
+        remove_thinking="["  # Invalid regex pattern
+    )
+    with pytest.raises(AgentError) as exc_info:
+        messages = action_step.to_messages()
+    assert "Invalid regex pattern" in str(exc_info.value)
